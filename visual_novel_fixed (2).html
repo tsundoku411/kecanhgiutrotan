@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kẻ Canh Giữ Tro Tàn</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #000; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
+            color: white; 
+            overflow: hidden; 
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+
+        #game-viewport { 
+            width: 100vw; 
+            max-width: 500px; 
+            height: 100vh; 
+            margin: 0 auto; 
+            position: relative; 
+            background: #111; 
+            overflow: hidden; 
+            border: 1px solid #333; 
+        }
+
+        /* Menu & Hiệu ứng tro bay */
+        #main-menu { 
+            position: absolute; 
+            inset: 0; 
+            z-index: 500; 
+            background: #000; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+        }
+
+        .title-game { 
+            font-size: 22px; 
+            text-align: center; 
+            letter-spacing: 2px; 
+            text-shadow: 0 0 10px #ff4500; 
+            font-family: inherit;
+        }
+
+        .btn-start { 
+            margin-top: 20px; 
+            background: none; 
+            border: 1px solid #fff; 
+            color: #fff; 
+            padding: 12px 30px; 
+            cursor: pointer; 
+            font-family: inherit;
+        }
+
+        .ash { 
+            position: absolute; 
+            background: rgba(255,255,255,0.1); 
+            border-radius: 50%; 
+            pointer-events: none; 
+            animation: fly var(--d) linear infinite; 
+        }
+
+        @keyframes fly { 
+            0% { transform: translateY(105vh); opacity: 0; } 
+            100% { transform: translateY(-10vh); opacity: 0; } 
+        }
+
+        /* Game Content */
+        #game-content { 
+            display: none; 
+            width: 100%; 
+            height: 100%; 
+            position: relative; 
+        }
+
+        /* --- BG CHIẾM 60% PHÍA TRÊN --- */
+        #background { 
+            position: absolute; 
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60%; /* Chỉ chiếm 60% phía trên */
+            background-size: cover; 
+            background-position: center; 
+            background-repeat: no-repeat;
+            filter: brightness(0.6);
+            transition: background-image 1s ease-in-out; 
+            z-index: 1;
+        }
+
+        /* --- NHÂN VẬT: NẰM TRONG KHU VỰC BG (60% TRÊN) --- */
+        .sprite { 
+            position: absolute; 
+            bottom: 40%; /* Đứng ngay trên viền hộp thoại = 40% từ dưới lên */
+            left: 50%; 
+            transform: translateX(-50%); 
+            width: 40%; /* Nhỏ hơn một chút */
+            height: 35%; 
+            background-size: contain; 
+            background-repeat: no-repeat; 
+            background-position: bottom center; 
+            transition: all 0.5s ease; 
+            opacity: 0; 
+            z-index: 10; 
+        }
+
+        /* Xóa vị trí left/right cũ vì giờ dùng center */
+        #char-left { background-position: bottom center; } 
+        #char-right { background-position: bottom center; }
+
+        .speaking { 
+            opacity: 1 !important; 
+            transform: translateX(-50%) scale(1.05); /* Giữ căn giữa khi scale */
+            z-index: 20; 
+            filter: brightness(1.1); 
+        }
+
+        .listening { 
+            opacity: 0.3; 
+            filter: brightness(0.5); 
+        }
+
+        /* --- HIỆU ỨNG HIỆN RÕ CÔ BÉ --- */
+        .glow-effect {
+            opacity: 1 !important;
+            filter: brightness(1.1) !important;
+            transform: translateX(-50%) scale(1.05); /* Giữ căn giữa */
+            z-index: 25;
+        }
+
+        /* --- HỘP THOẠI: 40% PHÍA DƯỚI, KHÔNG CUỘN --- */
+        #ui-box { 
+            position: absolute; 
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40%; /* Chiếm 40% phía dưới */
+            background: rgba(0,0,0,0.85); /* Đậm hơn để dễ đọc */
+            border-top: 2px solid #444; 
+            padding: 15px 20px;
+            z-index: 100; 
+            cursor: pointer; 
+            box-sizing: border-box; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Ẩn thanh cuộn */
+        }
+
+        #nav-bar { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 8px; 
+            border-bottom: 1px solid #333; 
+            padding-bottom: 5px; 
+        }
+
+        #nav-bar button { 
+            background: #222; 
+            border: 1px solid #444; 
+            color: #888; 
+            font-size: 11px; 
+            cursor: pointer; 
+            padding: 4px 10px; 
+            font-family: inherit;
+        }
+
+        #speaker { 
+            color: #d3a13b; 
+            font-weight: bold; 
+            margin-bottom: 5px; 
+            min-height: 20px; 
+            font-size: 14px; 
+            font-family: inherit; 
+        }
+
+        #text { 
+            line-height: 1.6; 
+            font-size: 15px; 
+            color: #ddd; 
+            text-align: justify; 
+            word-wrap: break-word; 
+            overflow-wrap: break-word; 
+            white-space: pre-wrap; 
+            overflow: hidden; /* Bỏ thanh cuộn */
+            flex: 1; /* Chiếm hết không gian còn lại */
+            font-family: Arial, Helvetica, sans-serif !important;
+        }
+
+        /* Choices */
+        #choice-container { 
+            position: absolute; 
+            top: 30%; 
+            left: 0; 
+            right: 0; 
+            display: none; 
+            flex-direction: column; 
+            gap: 12px; 
+            align-items: center; 
+            z-index: 200; 
+        }
+
+        .choice-btn { 
+            background: #000; 
+            border: 1px solid #d3a13b; 
+            color: white; 
+            padding: 15px; 
+            width: 85%; 
+            cursor: pointer; 
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        /* --- MÀN HÌNH KẾT THÚC --- */
+        #credits-screen {
+            position: absolute;
+            inset: 0;
+            background: #000;
+            z-index: 3000;
+            display: none; 
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            animation: fadeIn 3s ease-in;
+        }
+
+        .thanks-msg { 
+            font-size: 16px; 
+            color: #888; 
+            letter-spacing: 1px; 
+        }
+
+        .author-name { 
+            font-size: 26px; 
+            color: #d3a13b; 
+            font-weight: bold; 
+            letter-spacing: 4px; 
+            text-shadow: 0 0 15px rgba(211, 161, 59, 0.6);
+            margin-top: 10px;
+        }
+
+        .replay-btn {
+            margin-top: 30px;
+            background: none;
+            border: 2px solid #d3a13b;
+            color: #d3a13b;
+            padding: 12px 40px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 16px;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .replay-btn:hover {
+            background: #d3a13b;
+            color: #000;
+            transform: scale(1.05);
+        }
+
+        @keyframes fadeIn { 
+            from { opacity: 0; } 
+            to { opacity: 1; } 
+        }
+
+        /* Animations */
+        #flash-effect { 
+            position: absolute; 
+            inset: 0; 
+            pointer-events: none; 
+            z-index: 1000; 
+        }
+
+        .shake-anim { 
+            animation: shake-screen 0.3s infinite; 
+        }
+
+        @keyframes shake-screen { 
+            0% { transform: translate(2px, 2px); } 
+            25% { transform: translate(-2px, -2px); } 
+            50% { transform: translate(2px, -2px); } 
+            100% { transform: translate(0, 0); } 
+        }
+
+        .flash-red { 
+            animation: flash-red-anim 0.5s; 
+        }
+
+        @keyframes flash-red-anim { 
+            0% { background: rgba(255,0,0,0); } 
+            50% { background: rgba(255,0,0,0.5); } 
+            100% { background: rgba(255,0,0,0); } 
+        }
+    </style>
+</head>
+<body>
+    <div id="game-viewport">
+        <audio id="bgm" loop>
+            <source src="https://cdn.discordapp.com/attachments/1467942086421647451/1467942414793707774/medieval-fantasy-music-462199.mp3?ex=69823768&is=6980e5e8&hm=6ddd882f32a2650b0531ac927ac35e16e8356bbef87876c4930a50e4c576258b&" type="audio/mpeg">
+        </audio>
+
+        <div id="flash-effect"></div>
+
+        <div id="main-menu">
+            <h1 class="title-game">KẺ CANH GIỮ<br>TRO TÀN</h1>
+            <button class="btn-start" onclick="startGame()">BẮT ĐẦU</button>
+        </div>
+
+        <div id="game-content">
+            <div id="background"></div>
+            <div id="char-left" class="sprite"></div>
+            <div id="char-right" class="sprite"></div>
+            
+            <div id="ui-box" onclick="nextStep()">
+                <div id="nav-bar">
+                    <button onclick="event.stopPropagation(); goBack()">BACK</button>
+                    <button onclick="event.stopPropagation(); backToMenu()">MENU</button>
+                    <button id="music-btn" onclick="event.stopPropagation(); toggleMusic()">SOUND OFF</button>
+                </div>
+                <div id="speaker"></div>
+                <div id="text"></div>
+            </div>
+            
+            <div id="choice-container"></div>
+        </div>
+
+        <div id="credits-screen">
+            <p class="thanks-msg">Cảm ơn bạn đã chơi</p>
+            <p class="author-name">TSUNDOKU411</p>
+            <button class="replay-btn" onclick="replayGame()">CHƠI LẠI</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. TÀI NGUYÊN HÌNH ẢNH
+        const assets = {
+            bg_field: "https://i.postimg.cc/tJ8VCv8g/IMG_0347.png",
+            bg_village: "https://i.postimg.cc/tJ8VCv8g/IMG_0347.png",
+            bg_fog: "https://i.postimg.cc/HnF7svFk/IMG_0346.png",
+            bg_forest: "https://i.postimg.cc/RhWHmxpq/IMG_0343.png",
+            bg_battlefield: "https://i.postimg.cc/HnF7svFj/IMG_0350.png",
+            bg_mountain: "https://i.postimg.cc/HnF7svFj/IMG_0350.png",
+            bg_ash: "https://i.postimg.cc/Y0XB1Jtp/IMG_0351.png",
+            
+            bunhin_normal: "https://i.postimg.cc/BvJN0txr/IMG_0344.png",
+            bunhin_sad: "https://i.postimg.cc/BvJN0txr/IMG_0344.png", 
+            cobe_normal: "https://i.postimg.cc/nLnTJM4t/IMG_0345.png"
+        };
+
+        // 2. KỊCH BẢN CHI TIẾT - GIỮ NGUYÊN
+        const storyData = {
+            "start": [
+                { s: "Dẫn truyện", t: "Ngày xửa ngày xưa, tại một cánh đồng hoang, có một gã Bù Nhìn Rơm đứng đơn độc. Bù Nhìn Rơm có vẻ ngoài đáng sợ với đôi mắt là hai hốc tối sâu hoắm và nụ cười thô kệch.", bg: "bg_field" },
+                { s: "Bù Nhìn", t: "Dù mang hình hài của một con quái vật rơm, ta vẫn dùng đôi bàn tay thô ráp của mình để che chắn cho một mầm cây nhỏ khỏi trận mưa rào hung dữ...", imgL: "bunhin_normal" },
+                { s: "Bù Nhìn", t: "...hay đứng yên hàng giờ liền để một đôi chim sẻ có thể làm tổ trên vai mình mà không sợ hãi." },
+                { s: "Dẫn truyện", t: "Một ngày nọ, Bù Nhìn Rơm quyết định rời khỏi cánh đồng để đến gần ngôi làng phía xa, nơi ánh đèn dầu lung linh mỗi đêm như những ngôi sao rơi.", bg: "bg_village" },
+                { s: "Bù Nhìn", t: "Ta muốn giúp bà lão gánh củi, muốn nhặt lại con búp bê vải rơi bên lề đường cho đứa trẻ, hoặc đơn giản là muốn đứng đủ gần để nghe tiếng cười của con người." },
+                { s: "Dẫn truyện", t: "Khi mặt trời lên, thay vì những lời cảm ơn, Bù Nhìn Rơm chỉ nhận lại những tiếng hét thất thanh: \"Quái vật! Có quái vật rơm bò vào làng!\"", effect: "flash" },
+                { s: "Dẫn truyện", t: "Người ta ném đá vào gã, những viên đá sắc lẹm làm rách lớp bao bố trên người gã, khiến rơm rạ văng tung tóe." },
+                { s: "Dẫn truyện", t: "Những người đàn ông cầm cuốc, cầm gậy đuổi đánh gã ra tận bìa rừng. Bù Nhìn Rơm không chống trả, gã chỉ lầm lũi chạy đi, đôi chân khua lạo xạo trên mặt đường đá." },
+                { s: "Bù Nhìn", t: "Ta nhìn thấy sự sợ hãi và căm ghét trong mắt họ.", imgL: "bunhin_sad", bg: "bg_field" },
+                { s: "Dẫn truyện", t: "Trở lại cánh đồng hoang, Bù Nhìn Rơm không còn ngắm nhìn bầu trời nữa. Gã đứng im lìm như một cái xác khô." },
+                { s: "Bù Nhìn", t: "Ta nhận ra rằng, dù có làm bao nhiêu điều tốt, lớp vỏ rơm rạ này vẫn là một lời nguyền ngăn cách ta với nhân loại." },
+                { s: "Bù Nhìn", t: "Ta ghét đôi bàn tay rơm này, ghét gương mặt không thể biểu lộ cảm xúc này. Liệu có một phép màu nào đó trên đời có thể biến ta thành người?" },
+                { s: "Dẫn truyện", t: "Vào một đêm trăng khuyết, khi sương mù dày đến mức không thể nhìn rõ bàn tay, một bóng nhỏ xuất hiện giữa cánh đồng.", glow: true, bg: "bg_fog" },
+                { s: "Dẫn truyện", t: "Đó là một đứa trẻ, nhưng dáng đi của nó xiêu vẹo, làn da xám xịt và đôi mắt to tròn vô hồn. Đó là một Thây Ma nhỏ tuổi, một sinh linh thuộc về thế giới của cái chết.", glow: true, imgR: "cobe_normal" },
+                { s: "Dẫn truyện", t: "Đứa trẻ đi thẳng đến chỗ Bù Nhìn Rơm, không sợ hãi, không xua đuổi. Nó vươn bàn tay lạnh lẽo ra và chạm vào vạt áo rơm của gã.", glow: true },
+                { s: "LỰA CHỌN 1", t: "Lần đầu tiên trong đời, gã thấy một sinh vật nhìn mình bằng sự thấu hiểu thay vì sợ hãi. Gã sẽ làm gì?", choices: [
+                    { text: "Kết bạn với Cô Bé Thây Ma", nextLabel: "friendship" },
+                    { text: "Xua đuổi sinh vật đáng sợ này", nextLabel: "ending_lonely" }
+                ]}
+            ],
+            "ending_lonely": [
+                { s: "Bù Nhìn", t: "Cút đi! Ta không muốn dính líu đến bất kỳ ai nữa, dù là người hay quỷ!", imgL: "bunhin_sad" },
+                { s: "Dẫn truyện", t: "Cô bé lầm lũi rời đi. Bạn mãi mãi đứng đó, cô độc cho đến khi mục nát giữa cánh đồng chết." },
+                { s: "KẾT THÚC", t: "Ending: Cô độc mãi mãi." }
+            ],
+            "friendship": [
+                { s: "Bù Nhìn", t: "Một cảm giác thân thuộc kỳ lạ bùng lên, mạnh mẽ đến mức khiến ta run rẩy.", imgL: "bunhin_normal", imgR: "cobe_normal" },
+                { s: "Dẫn truyện", t: "Bù Nhìn và Cô Bé Thây Ma trở thành bạn của nhau theo cách kỳ lạ nhất. Đứa trẻ không biết nói, nhưng Bù Nhìn hiểu tất cả." },
+                { s: "Dẫn truyện", t: "Họ cùng nhau ngồi dưới gốc cây già, đứa trẻ dựa đầu vào vai rơm của Bù Nhìn. Gã bắt đầu tìm kiếm những bông hoa dại đẹp nhất để cài lên mái tóc thưa thớt của đứa bé." },
+                { s: "Dẫn truyện", t: "Và đứa bé sẽ vẽ những hình thù nguệch ngoạc lên mặt đất để kể cho gã nghe về nỗi buồn của nó. Sự hiện diện của đứa trẻ khiến cánh đồng chết chóc trở nên ấm áp hơn bao giờ hết." },
+                { s: "Bù Nhìn", t: "Ta không còn là một vật vô tri, mà là một người bảo vệ, một người anh, một người bạn..." },
+                { s: "Dẫn truyện", t: "Vào những đêm thanh vắng, Bù Nhìn bắt đầu \"kể\" cho đứa trẻ nghe về ước mơ của mình qua những điệu bộ và âm thanh xào xạc." },
+                { s: "Bù Nhìn", t: "Ta nói về khát khao được có một trái tim nóng hổi, có làn da mềm mại để cảm nhận hơi ấm mặt trời thay vì chỉ cảm thấy rơm khô mục nát." },
+                { s: "Cô bé", t: "..." },
+                { s: "Dẫn truyện", t: "Đứa trẻ lắng nghe một cách chăm chú, đôi mắt nó đôi khi lóe lên một tia sáng kỳ lạ." },
+                { s: "Dẫn truyện", t: "Một ngày nọ, Cô Bé Thây Ma rời đi rất lâu, khi trở lại, nó mang trên người rất nhiều vết thương, nhưng lại có vẻ rất vui." },
+                { s: "Dẫn truyện", t: "Nó đưa cho gã mảnh giấy da ghi lại truyền thuyết về Ngọn lửa sự sống, có thể mang lại sinh mệnh cho vạn vật. Hy vọng trong gã dấy lên mãnh liệt!" },
+                { s: "Dẫn truyện", t: "Cuộc hành trình bắt đầu. Bù Nhìn cõng đứa trẻ trên vai, bước những bước dài qua những vùng đất hoang vu.", bg: "bg_forest" },
+                { s: "Dẫn truyện", t: "Gã không còn quan tâm đến những hòn đá sắc lẹm hay cái lạnh thấu xương, vì trong lòng gã chỉ có hình ảnh của một con người bằng xương bằng thịt." },
+                { s: "Dẫn truyện", t: "Đứa trẻ thây ma ngồi trên vai gã, đôi tay nhỏ bé bám chặt vào cổ rơm, đôi mắt dõi theo con đường phía trước với một sự kiên định bí ẩn." },
+                { s: "Dẫn truyện", t: "Họ đi qua những khu rừng già im lìm, nơi những cái cây trông giống như những bộ xương khô khổng lồ." },
+                { s: "Dẫn truyện", t: "Bầu trời đột ngột tối sầm bởi hàng ngàn đôi cánh đen kịt: Lũ Quạ Ký Ức!", effect: "flash" },
+                { s: "Bù Nhìn", t: "Ta dùng toàn bộ cơ thể bao bọc lấy nó, chấp nhận để lũ quạ mổ nát vai mình. Cơn đau chẳng thấm gì so với nỗi sợ mất đi người bạn duy nhất!", effect: "shake" },
+                { s: "Dẫn truyện", t: "Họ đi vào một bãi chiến trường cổ xưa, nơi những bộ giáp lính chiến rỉ sét bỗng nhiên đứng dậy ngăn cản.", bg: "bg_battlefield" },
+                { s: "Bù Nhìn", t: "Ta chiến đấu bằng sự liều lĩnh của kẻ không còn gì để mất. Ta làm kẹt những khớp nối kim loại bằng chính thân rơm của mình!" },
+                { s: "Dẫn truyện", t: "Một lần nữa, Bù Nhìn chiến thắng. Gã đứng giữa đống sắt vụn, hơi thở xào xạc, cảm thấy mình đã xứng đáng hơn với cái tên \"con người\"." },
+                { s: "Dẫn truyện", t: "Đỉnh núi Phía Bắc đã hiện ra, bao phủ trong luồng sáng đỏ cam kỳ ảo. \"Sắp đến rồi,\" gã tự nhủ.", bg: "bg_mountain" },
+                { s: "Dẫn truyện", t: "Khi họ bước vào thung lũng, mùi khói khét lẹt xộc vào mũi Bù Nhìn. Gã rùng mình, cố gắng tập trung vào mục tiêu duy nhất." },
+                { s: "Dẫn truyện", t: "Hiện ra trước mắt là vòng lửa lớn cháy dữ dội. Bù Nhìn đang chần chừ thì Cô Bé Thây Ma đột ngột lao mình vào ngọn lửa!" },
+                { s: "LỰA CHỌN 2", t: "Gã hoảng sợ. Gã không hiểu tại sao cô bé lại làm thế. Và gã đưa ra quyết định cuối cùng...", choices: [
+                    { text: "QUAY LƯNG BỎ CHẠY", nextLabel: "truth_ending" }
+                ]}
+            ],
+            "truth_ending": [
+                { s: "Bù Nhìn", t: "Ta hoảng sợ và chọn cách hèn nhát nhất: QUAY LƯNG BỎ CHẠY!", effect: "shake" },
+                { s: "Dẫn truyện", t: "Nhưng mới được mấy bước, từ ngực gã nhói lên đau đớn. Một tiếng cười khẽ cất ra từ ngọn lửa: Cô Bé Thây Ma đang nhìn gã với ánh mắt buồn bã và đau đớn.", effect: "flash" },
+                { s: "Cô bé", t: "..." },
+                { s: "Dẫn truyện", t: "Ánh mắt này khiến Bù Nhìn cảm thấy thời gian như quay ngược lại rất nhiều năm về trước." },
+                { s: "Bù Nhìn", t: "Năm xưa, ta là một người lính hèn nhát đã vì bảo toàn mạng sống mà bán đứng hàng trăm dân làng cho quân địch." },
+                { s: "Bù Nhìn", t: "Ta đã đứng trong bóng tối nhìn ngọn lửa liếm trọn những mái nhà và nghe tiếng kêu cứu của những người ta từng thề bảo vệ." },
+                { s: "Bù Nhìn", t: "Trong cơn nhục nhã, ta đã điên cuồng vơ lấy rơm rạ quấn quanh người để giả làm vật vô tri. Lớp rơm đó đã kết dính vào da thịt ta mãi mãi." },
+                { s: "Dẫn truyện", t: "Cô Bé Thây Ma chính là nạn nhân năm đó, linh hồn bị bắn thủng ngực khi cố chạy thoát khỏi đám cháy mà gã gây ra." },
+                { s: "Dẫn truyện", t: "Trong khoảnh khắc hấp hối, nó đã nhặt lấy trái tim nóng hổi rơi ra từ lồng ngực gã khi gã đang điên cuồng quấn rơm." },
+                { s: "Dẫn truyện", t: "Suốt bao năm qua, nó mang theo trái tim của gã, cảm nhận từng nhịp đập hèn nhát của kẻ thù chỉ để chờ ngày dẫn gã đến đây." },
+                { s: "Dẫn truyện", t: "Giữa ngọn lửa thiêu rụi linh hồn, nó mỉm cười mãn nguyện rồi tan biến cùng trái tim kẻ tội đồ.", effect: "flash" },
+                { s: "Bù Nhìn", t: "KHÔNG! Tiếng \"rắc\" khô khốc vang lên. Cơ hội làm người duy nhất đã vỡ vụn!", effect: "shake" },
+                { s: "Bù Nhìn", t: "Ta đã giết nó hai lần: một lần bằng sự phản bội của người lính, và một lần bằng sự hèn nhát của con bù nhìn.", bg: "bg_ash" },
+                { s: "Dẫn truyện", t: "Dưới chân gã chỉ còn là một đống tro tàn xám ngắt. Gã quỳ sụp xuống, đôi bàn tay run rẩy bới tìm trong đống tro." },
+                { s: "Dẫn truyện", t: "Nhưng gió núi đã thổi bay tất cả. Gã áp mặt mình vào lớp tro nóng, khóc mà không có giọt nước mắt nào rơi ra." },
+                { s: "Dẫn truyện", t: "Sự cứu rỗi đã từng nằm ngay cạnh gã, nhưng gã đã xua đuổi nó bằng chính nỗi sợ hãi của mình." },
+                { s: "Dẫn truyện", t: "Gã cô đơn đến mức hóa điên, nhưng lại sợ cái chết đến mức không dám tự kết liễu. Một sự tồn tại vật vờ, không sống mà cũng chẳng phải chết." },
+                { s: "KẾT THÚC", t: "Ngày xửa ngày xưa, tại một cánh đồng hoang, có một gã Bù Nhìn Rơm đứng đơn độc...", bg: "bg_field" }
+            ]
+        };
+
+        // --- LOGIC XỬ LÝ ---
+        let currentLabel = "start", currentIndex = 0, history = [];
+        let isTyping = false, typeInterval, currentFullText = "";
+
+        function startGame() {
+            const music = document.getElementById("bgm");
+            music.volume = 0.4;
+            music.play().catch(e => console.log("Trình duyệt chặn nhạc"));
+
+            document.getElementById("main-menu").style.display = "none";
+            document.getElementById("game-content").style.display = "block";
+            currentLabel = "start"; currentIndex = 0; history = [];
+            
+            // Set background ngay lập tức
+            console.log("Game started!");
+            render(false);
+        }
+
+        function toggleMusic() {
+            const music = document.getElementById("bgm");
+            const btn = document.getElementById("music-btn");
+            if (music.paused) { music.play(); btn.innerText = "SOUND OFF"; }
+            else { music.pause(); btn.innerText = "SOUND ON"; }
+        }
+
+        function backToMenu() {
+            const music = document.getElementById("bgm");
+            music.pause(); music.currentTime = 0;
+            document.getElementById("main-menu").style.display = "flex";
+            document.getElementById("game-content").style.display = "none";
+            document.getElementById("credits-screen").style.display = "none";
+            clearInterval(typeInterval);
+        }
+
+        function replayGame() {
+            // Ẩn màn hình credits
+            document.getElementById("credits-screen").style.display = "none";
+            
+            // Reset game state
+            currentLabel = "start";
+            currentIndex = 0;
+            history = [];
+            clearInterval(typeInterval);
+            
+            // Hiện lại game content và bắt đầu từ đầu
+            document.getElementById("game-content").style.display = "block";
+            render(false);
+            
+            // Restart music nếu đang tắt
+            const music = document.getElementById("bgm");
+            if (music.paused) {
+                music.currentTime = 0;
+                music.play().catch(e => console.log("Trình duyệt chặn nhạc"));
+            }
+        }
+
+        function render(skipType = false) {
+            const step = storyData[currentLabel][currentIndex];
+            const textElement = document.getElementById("text");
+            const container = document.getElementById("choice-container");
+            const viewport = document.getElementById("game-viewport");
+            const flash = document.getElementById("flash-effect");
+
+            container.style.display = "none";
+            clearInterval(typeInterval);
+            currentFullText = step.t;
+
+            viewport.className = step.effect === "shake" ? "shake-anim" : "";
+            flash.className = step.effect === "flash" ? "flash-red" : "";
+
+            document.getElementById("speaker").innerText = (step.s.includes("Dẫn truyện") || step.choices || step.s === "KẾT THÚC") ? "" : step.s;
+
+            if (skipType) {
+                textElement.innerText = currentFullText;
+                isTyping = false;
+                if (step.choices) showChoices(step.choices);
+            } else {
+                textElement.innerText = "";
+                isTyping = true;
+                let charIndex = 0;
+                typeInterval = setInterval(() => {
+                    if (charIndex < currentFullText.length) {
+                        textElement.innerText += currentFullText.charAt(charIndex);
+                        charIndex++;
+                    } else { finishTyping(); }
+                }, 25);
+            }
+
+            if (step.bg) {
+                const bgUrl = assets[step.bg];
+                const bgElement = document.getElementById("background");
+                bgElement.style.backgroundImage = `url('${bgUrl}')`;
+                console.log("✓ Background set:", step.bg, "→", bgUrl);
+                console.log("  Element style:", bgElement.style.backgroundImage);
+            }
+            if (step.imgL && assets[step.imgL]) document.getElementById("char-left").style.backgroundImage = `url('${assets[step.imgL]}')`;
+            if (step.imgR && assets[step.imgR]) document.getElementById("char-right").style.backgroundImage = `url('${assets[step.imgR]}')`;
+
+            // --- LOGIC HIỆN NHÂN VẬT ---
+            const speaker = step.s.toLowerCase();
+            const charLeft = document.getElementById("char-left");
+            const charRight = document.getElementById("char-right");
+
+            charLeft.className = "sprite listening";
+            charRight.className = "sprite listening";
+
+            if (speaker === "bù nhìn") {
+                charLeft.className = "sprite speaking";
+            } else if (speaker === "cô bé") {
+                charRight.className = "sprite speaking";
+            }
+
+            if (step.glow) {
+                charRight.className = "sprite speaking glow-effect";
+            } else {
+                charRight.classList.remove("glow-effect");
+            }
+
+            if (step.s === "KẾT THÚC") {
+                setTimeout(() => {
+                    const credits = document.getElementById("credits-screen");
+                    if (credits) credits.style.display = "flex";
+                }, 2500);
+            }
+        }
+
+        function finishTyping() {
+            clearInterval(typeInterval);
+            document.getElementById("text").innerText = currentFullText;
+            isTyping = false;
+            const step = storyData[currentLabel][currentIndex];
+            if (step.choices) showChoices(step.choices);
+        }
+
+        function showChoices(choices) {
+            const container = document.getElementById("choice-container");
+            container.innerHTML = ""; container.style.display = "flex";
+            choices.forEach(ch => {
+                const btn = document.createElement("button");
+                btn.className = "choice-btn";
+                btn.innerText = ch.text;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    history.push({label: currentLabel, index: currentIndex});
+                    currentLabel = ch.nextLabel; currentIndex = 0; render(false);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function nextStep() {
+            if (isTyping) { finishTyping(); return; }
+            const path = storyData[currentLabel];
+            if (path[currentIndex].choices) return;
+            if (currentIndex < path.length - 1) {
+                history.push({label: currentLabel, index: currentIndex});
+                currentIndex++; render(false);
+            }
+        }
+
+        function goBack() {
+            if (history.length > 0) {
+                clearInterval(typeInterval);
+                const last = history.pop();
+                currentLabel = last.label;
+                currentIndex = last.index;
+                render(true);
+            }
+        }
+
+        // Tạo hiệu ứng tro bay
+        const menuElement = document.getElementById('main-menu');
+        for (let i = 0; i < 30; i++) {
+            let ash = document.createElement('div'); 
+            ash.className = 'ash';
+            ash.style.width = ash.style.height = Math.random() * 3 + 2 + 'px';
+            ash.style.left = Math.random() * 100 + 'vw';
+            ash.style.setProperty('--d', Math.random() * 5 + 3 + 's');
+            menuElement.appendChild(ash);
+        }
+    </script>
+</body>
+</html>
